@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data.SqlClient;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Data.SqlClient;
 
-namespace SQLUtility.CSharp.Deprecated
+namespace CSharp.Types.Deprecated
 {
-    interface SQLActor
+    public interface SQLActor
     {
-        object? Act(SqlCommand cmd, out Exception? err);
+        public object? Act(SqlCommand cmd, out Exception? err);
     }
     abstract class SQLType : SQLActor
     {
@@ -18,7 +13,7 @@ namespace SQLUtility.CSharp.Deprecated
             object? result = null;
             try
             {
-                result = Foo(cmd, out err);
+                result = Foo(cmd);
                 err = null;
             }
             catch (Exception e) 
@@ -27,57 +22,117 @@ namespace SQLUtility.CSharp.Deprecated
             }
             return result;
         }
-        private void HandleError(Exception e, out Exception err)
+        protected virtual void HandleError(Exception e, out Exception err)
         {
             err = e;
         }
-        public abstract object Foo(SqlCommand cmd, out Exception? err);
+        protected abstract object? Foo(SqlCommand cmd);
+    }
+    abstract class SQLReader : SQLType
+    {
+        protected override object? Foo(SqlCommand cmd)
+        {
+            object? result;
+            using (SqlDataReader rdr = cmd.ExecuteReader())
+            {
+                result = ReaderFoo(rdr);
+            }
+            return result;
+        }
+        protected abstract object? ReaderFoo(SqlDataReader rdr);
+    }
+    abstract class SQLReaderSingle : SQLReader
+    {
+        protected override object? ReaderFoo(SqlDataReader rdr)
+        {
+            object? result;
+            rdr.Read();
+            result = ReadRow(rdr);
+            return result;
+        }
+        protected abstract object? ReadRow(SqlDataReader rdr);
+    }
+    abstract class SQLReaderMulti : SQLReaderSingle
+    {
+        protected override object? ReaderFoo(SqlDataReader rdr)
+        {
+            List<object?> result = [];
+            while (rdr.Read())
+            {
+                result.Add(ReadRow(rdr));
+            }
+            return result;
+        }
     }
     class SQLNone : SQLType
     {
-        public override object Foo()
+        protected override object? Foo(SqlCommand cmd)
         {
-            throw new NotImplementedException();
+            cmd.ExecuteNonQuery();
+            return null;
         }
     }
     class SQLScalar : SQLType
     {
-        public override object Foo()
+        protected override object? Foo(SqlCommand cmd)
+        {
+            return cmd.ExecuteScalar();
+        }
+    }
+    class SQLRow : SQLReaderSingle
+    {
+        protected override object? Foo(SqlCommand cmd)
+        {
+            List<object> list = [];
+            using (SqlDataReader rdr = cmd.ExecuteReader())
+            {
+                rdr.Read();
+                foreach (object cell in rdr) { list.Add(cell);}
+            }
+            return list;
+        }
+
+        protected override object? ReadRow(SqlDataReader rdr)
         {
             throw new NotImplementedException();
         }
     }
-    class SQLRow : SQLType
+    class SQLMultiRow : SQLReaderMulti
     {
-        public override object Foo()
+        protected override object? ReadRow(SqlDataReader rdr)
         {
-            throw new NotImplementedException();
-        }
-    }
-    class SQLMultiRow : SQLType
-    {
-        public override object Foo()
-        {
-            throw new NotImplementedException();
+            List<object> row = new List<object>();
+            foreach (object cell in rdr) { row.Add(cell); }
+            return row;
         }
     }
     class SQLDictionary : SQLType
     {
-        public override object Foo()
+        protected override object? Foo(SqlCommand cmd)
         {
-            throw new NotImplementedException();
+            Dictionary<string, object> dict = [];
+            using (SqlDataReader rdr = cmd.ExecuteReader())
+            {
+                while(rdr.Read())
+                {
+                    for (int i = 0; i < rdr.FieldCount; i++) 
+                    { dict[rdr.GetName(i)] = rdr.GetValue(i);}
+                }
+            }
+            return dict;
+
         }
     }
     class SQLDictRows : SQLType
     {
-        public override object Foo()
+        protected override object? Foo(SqlCommand cmd)
         {
             throw new NotImplementedException();
         }
     }
     class SQLDataTable : SQLType
     {
-        public override object Foo()
+        protected override object? Foo(SqlCommand cmd)
         {
             throw new NotImplementedException();
         }

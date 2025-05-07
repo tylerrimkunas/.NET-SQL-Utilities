@@ -1,13 +1,10 @@
-﻿using SQLUtility.C_.Deprecated;
+﻿using CSharp.Types.Deprecated;
 using System.Data.SqlClient;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.InteropServices.ObjectiveC;
-namespace SQLUtility
+namespace CSharp.Utility.Deprecated
 {
     public class SQLUtility
     {
-        private string query;
+        private string? query;
         private string constr;
         private (string, object)[]? parameters;
         public SQLUtility(string? q = null, string c = "DEFAULT", (string, Object)[]? param_arr = null)
@@ -20,7 +17,7 @@ namespace SQLUtility
         {
             return [.. arr.Select(x => x = x.Item1[0] != '@' ? ($"@{x.Item1}", x.Item2) : (x.Item1, x.Item2))];
         }
-        public object? Do(SQLActor x, out Exception err)
+        public object? Execute(SQLActor x, out Exception? err)
         {
             object? result = null;
             using (SqlConnection con = new SqlConnection(constr))
@@ -35,7 +32,7 @@ namespace SQLUtility
                         }
                     }
                     con.Open();
-                    result = x.Act();
+                    result = x.Act(cmd, out err);
                     con.Close();
                 }
             }
