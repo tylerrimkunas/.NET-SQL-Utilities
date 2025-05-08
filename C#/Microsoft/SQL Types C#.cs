@@ -31,6 +31,7 @@ namespace CSharp.Types
     }
     abstract class SQLReader : SQLType
     {
+        protected ICommon? common;
         protected override object? Foo(SqlCommand cmd)
         {
             object? result;
@@ -51,7 +52,7 @@ namespace CSharp.Types
             result = ReadRow(rdr);
             return result;
         }
-        protected abstract object? ReadRow(SqlDataReader rdr);
+        protected virtual object? ReadRow(SqlDataReader rdr) => common?.Run(rdr);
     }
     abstract class SQLReaderMulti : SQLReaderSingle
     {
@@ -82,43 +83,19 @@ namespace CSharp.Types
     }
     class SQLRow : SQLReaderSingle
     {
-        protected override object? ReadRow(SqlDataReader rdr)
-        {
-            List<object> row = [.. rdr];
-            return row;
-        }
+        public SQLRow() => common = new CommonRow();
     }
     class SQLMultiRow : SQLReaderMulti
     {
-        protected override object? ReadRow(SqlDataReader rdr)
-        {
-            List<object> row = [.. rdr];
-            return row;
-        }
+        public SQLMultiRow() => common = new CommonRow();
     }
     class SQLDictionary : SQLReaderSingle
     {
-        protected override object? ReadRow(SqlDataReader rdr)
-        {
-            Dictionary<string, object> dict = [];
-            for (int i = 0; i <= rdr.FieldCount; i++)
-            {
-                dict[rdr.GetName(i)] = (object)rdr.GetValue(i);
-            }
-            return dict;
-        }
+        public SQLDictionary() => common = new CommonDictionary();
     }
     class SQLMultiDictionary : SQLReaderMulti
     {
-        protected override object? ReadRow(SqlDataReader rdr)
-        {
-            Dictionary<string, object> dict = [];
-            for (int i = 0; i <= rdr.FieldCount; i++)
-            {
-                dict[rdr.GetName(i)] = (object)rdr.GetValue(i);
-            }
-            return dict;
-        }
+        public SQLMultiDictionary() => common = new CommonDictionary();
     }
     class SQLDataTable : SQLType
     {
@@ -128,6 +105,30 @@ namespace CSharp.Types
             DataTable dt = new();
             sda.Fill(dt);
             return dt;
+        }
+    }
+    interface ICommon
+    {
+        object? Run(SqlDataReader rdr);
+    }
+    class CommonDictionary : ICommon
+    {
+        public object? Run(SqlDataReader rdr)
+        {
+            Dictionary<string, object> dict = [];
+            for (int i = 0; i <= rdr.FieldCount; i++)
+            {
+                dict[rdr.GetName(i)] = (object)rdr.GetValue(i);
+            }
+            return dict;
+        }
+    }
+    class CommonRow : ICommon
+    {
+        public object? Run(SqlDataReader rdr)
+        {
+            List<object> row = [.. rdr];
+            return row;
         }
     }
 }
