@@ -1,12 +1,13 @@
 ﻿using Microsoft.Data.SqlClient;
+using System.Data;
 
 namespace CSharp.Types
 {
-    public interface SQLActor
+    public interface ISQLActor
     {
         public object? Act(SqlCommand cmd, out Exception? err);
     }
-    abstract class SQLType : SQLActor
+    abstract class SQLType : ISQLActor
     {
         public object? Act(SqlCommand cmd, out Exception? err)
         {
@@ -45,14 +46,14 @@ namespace CSharp.Types
     {
         protected override object? ReaderFoo(SqlDataReader rdr)
         {
-            List<object?> result = [];
+            object? result;
             rdr.Read();
-            result.Add(ReadValue(rdr));
+            result = ReadRow(rdr);
             return result;
         }
-        protected abstract object? ReadValue(SqlDataReader rdr);
+        protected abstract object? ReadRow(SqlDataReader rdr);
     }
-    abstract class SQLReaderMulti : SQLReader
+    abstract class SQLReaderMulti : SQLReaderSingle
     {
         protected override object? ReaderFoo(SqlDataReader rdr)
         {
@@ -63,7 +64,6 @@ namespace CSharp.Types
             }
             return result;
         }
-        protected abstract object? ReadRow(SqlDataReader rdr);
     }
     class SQLNone : SQLType
     {
@@ -80,65 +80,54 @@ namespace CSharp.Types
             return cmd.ExecuteScalar();
         }
     }
-    class SQLRow : SQLType
+    class SQLRow : SQLReaderSingle
     {
-        protected override object? Foo(SqlCommand cmd)
+        protected override object? ReadRow(SqlDataReader rdr)
         {
-            List<object> list = [];
-            using (SqlDataReader rdr = cmd.ExecuteReader())
-            {
-                rdr.Read();
-                foreach (object cell in rdr) { list.Add(cell); }
-            }
-            return list;
+            List<object> row = [.. rdr];
+            return row;
         }
     }
-    class SQLMultiRow : SQLType
+    class SQLMultiRow : SQLReaderMulti
     {
-        protected override object? Foo(SqlCommand cmd)
+        protected override object? ReadRow(SqlDataReader rdr)
         {
-            List<List<object>> list = [];
-            using (SqlDataReader rdr = cmd.ExecuteReader())
-            {
-                while (rdr.Read())
-                {
-                    List<object> row = new List<object>();
-                    foreach (object cell in rdr) { row.Add(cell); }
-                    list.Add(row);
-                }
-            }
-            return list;
+            List<object> row = [.. rdr];
+            return row;
         }
     }
-    class SQLDictionary : SQLType
+    class SQLDictionary : SQLReaderSingle
     {
-        protected override object? Foo(SqlCommand cmd)
+        protected override object? ReadRow(SqlDataReader rdr)
         {
             Dictionary<string, object> dict = [];
-            using (SqlDataReader rdr = cmd.ExecuteReader())
+            for (int i = 0; i <= rdr.FieldCount; i++)
             {
-                while (rdr.Read())
-                {
-                    for (int i = 0; i < rdr.FieldCount; i++)
-                    { dict[rdr.GetName(i)] = rdr.GetValue(i); }
-                }
+                dict[rdr.GetName(i)] = (object)rdr.GetValue(i);
             }
             return dict;
-
         }
     }
-    class SQLDictRows : SQLType
+    class SQLMultiDictionary : SQLReaderMulti
     {
-        protected override object? Foo(SqlCommand cmd)
+        protected override object? ReadRow(SqlDataReader rdr)
         {
-            throw new NotImplementedException();
+            Dictionary<string, object> dict = [];
+            for (int i = 0; i <= rdr.FieldCount; i++)
+            {
+                dict[rdr.GetName(i)] = (object)rdr.GetValue(i);
+            }
+            return dict;
         }
     }
     class SQLDataTable : SQLType
     {
         protected override object? Foo(SqlCommand cmd)
         {
-            throw new NotImplementedException();
+            SqlDataAdapter sda = new(cmd);
+            DataTable dt = new();
+            sda.Fill(dt);
+            return dt;
         }
     }
 }

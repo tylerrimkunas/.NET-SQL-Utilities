@@ -17,12 +17,12 @@ namespace CSharp.Utility.Deprecated
         {
             return [.. arr.Select(x => x = x.Item1[0] != '@' ? ($"@{x.Item1}", x.Item2) : (x.Item1, x.Item2))];
         }
-        public object? Execute(SQLActor x, out Exception? err)
+        public object? Execute(ISQLActor x, out Exception? err)
         {
             object? result = null;
-            using (SqlConnection con = new SqlConnection(constr))
+            using (SqlConnection con = new(constr))
             {
-                using (SqlCommand cmd = new SqlCommand(query, con))
+                using (SqlCommand cmd = new(query, con))
                 {
                     if (parameters != null)
                     {
